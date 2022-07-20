@@ -11,54 +11,55 @@ contract MultiSignature {
     }
 
     uint256 id;
-
     struct Transfer {
         uint256 id;
-        address payable to;
         uint256 amount;
+        address payable to;
         uint256 approvals;
-        bool sent;
+        bool isSent;
     }
 
     Transfer[] public transfers;
+    mapping(address => mapping(uint256 => bool)) public approvedTransfer;
 
-    mapping(address => mapping(uint => bool)) approvals;
-
-    function fund() external payable {}
-
-    function createTransfer(address payable to, uint256 amount)
+    function createTransfer(uint256 amount, address payable to)
         external
         onlySigner
     {
-        transfers.push(Transfer(id, to, amount, 0, false));
+        transfers.push(Transfer(id, amount, to, 0, false));
         id++;
     }
 
-    function sendTransfer(uint256 id) external onlySigner {
-        Transfer memory transfer = transfers[id];
-        require(transfer.sent == false, "Already sent");
+    function sendTransfer(uint256 transferId) external onlySigner {
+        Transfer memory transfer = transfers[transferId];
+
+        require(transfer.isSent == false, "Already Sent");
         require(
-            address(this).balance >= transfer.amount,
-            "Not enough funds available"
+            transfer.amount <= address(this).balance,
+            "The contract doesnt have enough balance"
         );
         if (transfer.approvals >= i_quorum) {
             transfer.to.transfer(transfer.amount);
-            transfers[id].sent = true;
+            transfers[transferId].isSent = true;
             return;
         }
-        require(approvals[msg.sender][id] = false, "Already Approved");
-        transfers[id].approvals++;
-        approvals[msg.sender][id] = true;
+        require(
+            approvedTransfer[msg.sender][transferId] == false,
+            "Already Approved"
+        );
+        transfers[transferId].approvals++;
+        approvedTransfer[msg.sender][transferId] = true;
     }
 
     modifier onlySigner() {
         bool isSigner = false;
-        for (uint i = 0; i < signers.length; i++) {
+        for (uint256 i = 0; i < signers.length; i++) {
             if (signers[i] == msg.sender) {
                 isSigner = true;
             }
         }
-        require(isSigner, "Only signer allowed");
+
+        require(isSigner, "Only Signer allowed");
         _;
     }
 }
